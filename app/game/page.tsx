@@ -185,12 +185,14 @@ export default function GameUI() {
         if (!success) {
           const currentScore = existing.score;
           let deduction = 0;
-          if (currentScore < 10000) deduction = 200;
-          else if (currentScore < 15000) deduction = 300;
-          else if (currentScore < 20000) deduction = 500;
-          else if (currentScore < 25000) deduction = 600;
-          else if (currentScore < 30000) deduction = 650;
-          else deduction = 700;
+          if (currentScore < 10000) deduction = 100;
+          else if (currentScore < 15000) deduction = 250;
+          else if (currentScore < 20000) deduction = 300;
+          else if (currentScore < 25000) deduction = 400;
+          else if (currentScore < 30000) deduction = 450;
+          else if (currentScore < 60000) deduction = 500;
+          else if (currentScore < 100000) deduction = 550;
+          else deduction = 550;
 
           updatedScore = Math.max(0, existing.score - deduction);
           setAnimatedPoints(-deduction);
