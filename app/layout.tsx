@@ -16,6 +16,9 @@ export const metadata: Metadata = {
   title: "Worbo",
   description:
     "Worbo is a fast-paced word challenge game that tests your vocabulary and reflexes. Compete with players worldwide, climb the leaderboard, and unlock ranks and trophies as you master each level. Challenge your mind, earn points, and prove your word power.",
+    icons: {
+    icon: "/logo.svg",
+  },
 };
 
 export default function RootLayout({

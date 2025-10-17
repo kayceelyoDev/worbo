@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   ArrowUpCircle,
   ArrowDownCircle,
+  Flame,
+  Target,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
@@ -42,7 +44,7 @@ export default function GameUI() {
   const currentRowRef = useRef<number>(currentRow);
   const targetWordRef = useRef<string>(targetWord);
 
-  const hasFetchedRef = useRef(false); // ✅ guard to prevent double fetch
+  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
     guessesRef.current = guesses;
@@ -153,72 +155,71 @@ export default function GameUI() {
   };
 
   useEffect(() => {
-    // ✅ Prevent duplicate fetch in React StrictMode
     if (hasFetchedRef.current) return;
     hasFetchedRef.current = true;
     fetchWord();
   }, []);
 
   const saveScore = async (newScore: number, success: boolean) => {
-  if (!userProfile) return;
+    if (!userProfile) return;
 
-  try {
-    const { data: existing, error: fetchError } = await supabase
-      .from("scores_table")
-      .select("id, score, rank")
-      .eq("user_id", userProfile.id)
-      .single();
+    try {
+      const { data: existing, error: fetchError } = await supabase
+        .from("scores_table")
+        .select("id, score, rank")
+        .eq("user_id", userProfile.id)
+        .single();
 
-    if (fetchError && fetchError.code !== "PGRST116") {
-      console.error("Error fetching existing score:", fetchError);
-      return;
-    }
+      if (fetchError && fetchError.code !== "PGRST116") {
+        console.error("Error fetching existing score:", fetchError);
+        return;
+      }
 
-    let updatedScore = newScore;
+      let updatedScore = newScore;
 
-    if (existing) {
-      if (!success) {
-        const currentScore = existing.score;
-        let deduction = 0;
-        if (currentScore < 10000) deduction = 200;
-        else if (currentScore < 15000) deduction = 300;
-        else if (currentScore < 20000) deduction = 500;
-        else if (currentScore < 25000) deduction = 600;
-        else if (currentScore < 30000) deduction = 650;
-        else deduction = 700;
+      if (existing) {
+        if (!success) {
+          const currentScore = existing.score;
+          let deduction = 0;
+          if (currentScore < 10000) deduction = 200;
+          else if (currentScore < 15000) deduction = 300;
+          else if (currentScore < 20000) deduction = 500;
+          else if (currentScore < 25000) deduction = 600;
+          else if (currentScore < 30000) deduction = 650;
+          else deduction = 700;
 
-        updatedScore = Math.max(0, existing.score - deduction);
-        setAnimatedPoints(-deduction);
-        setIsPositive(false);
+          updatedScore = Math.max(0, existing.score - deduction);
+          setAnimatedPoints(-deduction);
+          setIsPositive(false);
+        } else {
+          updatedScore = existing.score + newScore;
+          setAnimatedPoints(newScore);
+          setIsPositive(true);
+        }
+
+        const { name: rankName } = getRank(updatedScore);
+
+        const { error: updateError } = await supabase
+          .from("scores_table")
+          .update({ score: updatedScore, rank: rankName })
+          .eq("id", existing.id);
+
+        if (updateError) console.error("Error updating score:", updateError);
       } else {
-        updatedScore = existing.score + newScore;
+        const { name: rankName } = getRank(newScore);
+
+        const { error: insertError } = await supabase
+          .from("scores_table")
+          .insert([{ user_id: userProfile.id, score: newScore, rank: rankName }]);
+
+        if (insertError) console.error("Error inserting score:", insertError);
         setAnimatedPoints(newScore);
         setIsPositive(true);
       }
-
-      const { name: rankName } = getRank(updatedScore);
-
-      const { error: updateError } = await supabase
-        .from("scores_table")
-        .update({ score: updatedScore, rank: rankName })
-        .eq("id", existing.id);
-
-      if (updateError) console.error("Error updating score:", updateError);
-    } else {
-      const { name: rankName } = getRank(newScore);
-
-      const { error: insertError } = await supabase
-        .from("scores_table")
-        .insert([{ user_id: userProfile.id, score: newScore, rank: rankName }]);
-
-      if (insertError) console.error("Error inserting score:", insertError);
-      setAnimatedPoints(newScore);
-      setIsPositive(true);
+    } catch (err) {
+      console.error("Unexpected error saving score:", err);
     }
-  } catch (err) {
-    console.error("Unexpected error saving score:", err);
-  }
-};
+  };
 
   const handleKeyPress = async (rawKey: string) => {
     if (!userProfile || loading || gameOver) return;
@@ -261,6 +262,8 @@ export default function GameUI() {
         setEndTime(end);
         setMessage("You got it!");
         setGameOver(true);
+        setAnimatedPoints(finalScore);
+        setIsPositive(true);
         await saveScore(finalScore, true);
         return;
       }
@@ -270,6 +273,8 @@ export default function GameUI() {
         setEndTime(end);
         setMessage(`Answer: ${targetWordRef.current}`);
         setGameOver(true);
+        setAnimatedPoints(0);
+        setIsPositive(false);
         await saveScore(0, false);
         return;
       }
@@ -328,26 +333,28 @@ export default function GameUI() {
 
   const getTileColor = (letter: string, index: number, rowIdx: number) => {
     const upper = letter.toUpperCase();
-    if (rowIdx >= currentRow) return "bg-slate-700/70";
-    if (!upper) return "bg-slate-700/70";
-    if (upper === targetWordRef.current[index]) return "bg-green-500";
-    if (targetWordRef.current.includes(upper)) return "bg-yellow-500";
-    return "bg-slate-600";
+    if (rowIdx >= currentRow) return "bg-slate-700/70 border-slate-600";
+    if (!upper) return "bg-slate-700/70 border-slate-600";
+    if (upper === targetWordRef.current[index]) return "bg-green-500 border-green-400";
+    if (targetWordRef.current.includes(upper)) return "bg-yellow-500 border-yellow-400";
+    return "bg-slate-600 border-slate-500";
   };
 
   const getKeyColor = (key: string) => {
     const state = usedKeys[key];
-    if (state === "correct") return "bg-green-500 text-white";
-    if (state === "present") return "bg-yellow-500 text-white";
-    if (state === "absent") return "bg-slate-600 text-gray-300";
-    return "bg-slate-700/70 text-white";
+    if (state === "correct") return "bg-green-500 text-white hover:bg-green-600";
+    if (state === "present") return "bg-yellow-500 text-white hover:bg-yellow-600";
+    if (state === "absent") return "bg-slate-600 text-gray-300 hover:bg-slate-700";
+    return "bg-slate-700 text-white hover:bg-slate-600";
   };
 
   if (loading)
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-slate-300">
-        <Loader2 className="animate-spin w-8 h-8 mb-2" />
-        Loading word...
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-slate-300">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="animate-spin w-8 h-8" />
+          <p className="text-lg font-semibold">Loading word...</p>
+        </div>
       </div>
     );
 
@@ -355,34 +362,65 @@ export default function GameUI() {
     endTime && startTime ? Math.floor((endTime - startTime) / 1000) : null;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-2 relative">
-      <div className="flex items-center gap-2 mb-6">
-        <Sparkles className="w-6 h-6 text-yellow-400 animate-pulse" />
-        <h1 className="text-3xl font-black text-white tracking-wider">
-          WOR<span className="text-green-500">BO</span>
-        </h1>
-        <Sparkles className="w-6 h-6 text-yellow-400 animate-pulse" />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-3 sm:p-4 relative overflow-hidden">
+      {/* Animated background grid */}
+      <div className="fixed inset-0 opacity-10 pointer-events-none">
+        <div className="absolute inset-0" style={{
+          backgroundImage: 'linear-gradient(0deg, transparent 24%, rgba(255,255,255,.05) 25%, rgba(255,255,255,.05) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.05) 75%, rgba(255,255,255,.05) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(255,255,255,.05) 25%, rgba(255,255,255,.05) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.05) 75%, rgba(255,255,255,.05) 76%, transparent 77%, transparent)',
+          backgroundSize: '50px 50px'
+        }}></div>
       </div>
 
+      {/* Floating gradient graphics */}
+      <div className="fixed -top-40 -left-40 w-80 h-80 rounded-full bg-green-500/10 blur-3xl pointer-events-none"></div>
+      <div className="fixed -bottom-40 -right-40 w-80 h-80 rounded-full bg-blue-500/10 blur-3xl pointer-events-none"></div>
+
+      {/* Top Bar */}
+      <div className="relative z-10 w-full flex items-center justify-between mb-6 sm:mb-8 px-2">
+        <Link href="/menu" className="flex items-center gap-2 text-slate-300 hover:text-green-400 transition transform hover:scale-110">
+          <House className="w-5 h-5" />
+          <span className="text-xs sm:text-sm font-semibold hidden sm:inline">Menu</span>
+        </Link>
+
+        <div className="flex items-center gap-3">
+          <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400 animate-pulse" />
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-wider">
+            WOR<span className="text-green-500">BO</span>
+          </h1>
+          <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400 animate-pulse" />
+        </div>
+
+        <div className="w-5 h-5 sm:w-6 sm:h-6"></div>
+      </div>
+
+      {/* Category & Attempts */}
       {category && !gameOver && (
-        <div className="text-slate-300 text-center mb-3">
-          <p>
-            Category: <span className="text-yellow-400">{category}</span>
-          </p>
+        <div className="relative z-10 flex flex-col items-center gap-2 mb-4 sm:mb-6">
+          <div className="flex items-center gap-2 text-slate-300">
+            <Target className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
+            <p className="text-sm sm:text-base">Category: <span className="text-yellow-400 font-bold">{category}</span></p>
+          </div>
+          <div className="flex items-center gap-2 text-slate-300">
+            <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400" />
+            <p className="text-sm sm:text-base">Attempts: <span className="text-orange-400 font-bold">{currentRow}/{MAX_TRIES}</span></p>
+          </div>
         </div>
       )}
 
-      <div className="w-full max-w-[380px] xs:max-w-[420px] sm:max-w-[440px] px-1">
-        <div className="space-y-2 mb-4">
+      {/* Game Grid */}
+      <div className="relative z-10 w-full max-w-md mx-auto">
+        <div className="space-y-2 mb-6">
           {guesses.map((word, rowIdx) => (
-            <div key={rowIdx} className="flex justify-center gap-1.5">
+            <div key={rowIdx} className="flex justify-center gap-1.5 sm:gap-2">
               {Array.from({ length: WORD_LENGTH }).map((_, colIdx) => {
                 const letter = word[colIdx] || "";
                 const colorClass = getTileColor(letter, colIdx, rowIdx);
                 return (
                   <div
                     key={colIdx}
-                    className={`${colorClass} w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center font-bold text-white rounded-md border border-slate-600 text-xl`}
+                    className={`${colorClass} w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center font-bold text-white rounded-lg border-2 text-lg sm:text-xl transition transform ${
+                      letter && rowIdx < currentRow ? 'scale-100' : 'scale-95'
+                    }`}
                   >
                     {letter}
                   </div>
@@ -392,146 +430,160 @@ export default function GameUI() {
           ))}
         </div>
 
+        {/* Message */}
         {message && (
-          <div className="text-slate-300 text-center mb-3 flex items-center justify-center gap-1">
-            <AlertTriangle className="w-4 h-4 text-yellow-400" />
-            <p>{message}</p>
+          <div className={`text-center mb-4 flex items-center justify-center gap-2 px-4 py-2 rounded-lg ${
+            message.includes("Not enough") 
+              ? "bg-red-500/20 border border-red-400/50 text-red-300" 
+              : "bg-slate-700/50 border border-slate-600 text-slate-300"
+          }`}>
+            <AlertTriangle className="w-4 h-4" />
+            <p className="text-sm sm:text-base">{message}</p>
           </div>
         )}
 
         {/* Keyboard */}
-        <div className="w-full max-w-sm sm:max-w-md mx-auto px-1 sm:px-2 space-y-2">
-          {/* Regular letter keys */}
+        <div className="space-y-1.5 sm:space-y-2 mb-6">
           {keyboardLayout.map((row, rIdx) => (
-            <div
-              key={rIdx}
-              className="flex justify-center flex-wrap gap-1 sm:gap-2 w-full"
-            >
-              {row
-                .filter((k) => k !== "ENTER" && k !== "DEL")
-                .map((k) => (
+            <div key={rIdx} className="flex justify-center gap-1 sm:gap-1.5 flex-wrap">
+              {row.map((k) => {
+                if (k === "ENTER" || k === "DEL") return null;
+                return (
                   <button
                     key={k}
                     onClick={() => handleKeyPress(k)}
-                    className={`${getKeyColor(
-                      k
-                    )} hover:opacity-90 active:scale-95 font-semibold rounded-md shadow-md transition flex-1 min-w-[auto] max-w-[6rem] px-2 py-2 sm:px-2 sm:py-3 text-xs sm:text-sm md:text-base`}
+                    disabled={gameOver}
+                    className={`${getKeyColor(k)} px-2 sm:px-3 py-2 sm:py-3 rounded-lg font-semibold text-xs sm:text-sm transition transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md`}
                   >
-                    <span className="select-none">{k}</span>
+                    {k}
                   </button>
-                ))}
+                );
+              })}
             </div>
           ))}
 
-          {/* Bottom row with ENTER and DEL */}
-          <div className="flex justify-center gap-2 mt-3">
+          {/* ENTER and DEL */}
+          <div className="flex justify-center gap-1 sm:gap-1.5 mt-2 sm:mt-3">
             <button
               onClick={() => handleKeyPress("ENTER")}
-              className={`${getKeyColor(
-                "ENTER"
-              )} hover:opacity-90 active:scale-95 font-semibold rounded-md shadow-md transition flex-1 max-w-[8rem] px-4 py-3 sm:py-4 text-sm sm:text-base`}
+              disabled={gameOver}
+              className={`${getKeyColor("ENTER")} px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-semibold text-xs sm:text-sm flex-1 max-w-[5rem] transition transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md`}
             >
               ENTER
             </button>
             <button
               onClick={() => handleKeyPress("DEL")}
-              className={`${getKeyColor(
-                "DEL"
-              )} hover:opacity-90 active:scale-95 font-semibold rounded-md shadow-md transition flex-1 max-w-[8rem] px-4 py-3 sm:py-4 text-sm sm:text-base`}
+              disabled={gameOver}
+              className={`${getKeyColor("DEL")} px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-semibold text-xs sm:text-sm flex-1 max-w-[5rem] transition transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md`}
             >
               DEL
             </button>
           </div>
         </div>
 
-
-        {gameOver && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-            <div className="bg-slate-800 rounded-2xl shadow-lg p-6 text-center w-[90%] max-w-sm border border-slate-700 relative">
-              <Trophy className="w-10 h-10 mx-auto text-yellow-400 mb-3" />
-              <h2 className="text-2xl font-bold text-white mb-2">Game Over</h2>
-              <div className="text-slate-300 text-sm space-y-1 mb-4">
-                <p>Score: {score}</p>
-                <p>Attempts: {currentRow}</p>
-                {timeTaken !== null && <p>Time: {timeTaken}s</p>}
-                <p>
-                  Word: <span className="text-green-400">{targetWord}</span>
-                </p>
-                <p>
-                  Category: <span className="text-yellow-400">{category}</span>
-                </p>
-              </div>
-
-              {/* ANIMATED POINTS */}
-              {animatedPoints !== null && (
-                <div
-                  className={`absolute -top-4 left-1/2 transform -translate-x-1/2 transition-all duration-700 ease-out ${isPositive
-                      ? "text-green-400 animate-bounce"
-                      : "text-red-500 animate-pulse"
-                    }`}
-                >
-                  {isPositive ? (
-                    <div className="flex items-center gap-1 font-bold text-xl">
-                      <ArrowUpCircle className="w-5 h-5" /> +{animatedPoints}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 font-bold text-xl">
-                      <ArrowDownCircle className="w-5 h-5" /> {animatedPoints}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="flex justify-center gap-3 mt-6">
-                <button
-                  onClick={restartGame}
-                  className="flex items-center gap-1 px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-white font-semibold transition"
-                >
-                  <RefreshCcw className="w-4 h-4" /> Restart
-                </button>
-                <button
-                  onClick={() => (window.location.href = "/leaderboard")}
-                  className="flex items-center gap-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-semibold transition"
-                >
-                  <Clock className="w-4 h-4" /> Leaderboard
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
+        {/* Action Buttons */}
         {!gameOver && (
-          <div className="flex flex-col items-center gap-2 justify-center mt-4">
-            <div className="flex flex-col gap-4 w-full items-center justify-center px-2">
-              
-              <button
-                className="w-full sm:w-72 md:w-96 group relative overflow-hidden rounded-2xl"
-                onClick={restartGame}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-red-600 via-red-500 to-red-600 opacity-100 group-hover:opacity-0 transition duration-300"></div>
-                <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-pink-600 opacity-0 group-hover:opacity-100 transition duration-300"></div>
-                <div className="relative bg-gradient-to-r from-red-600 to-red-500 group-hover:from-red-500 group-hover:to-pink-600 text-white font-black py-3 px-3 rounded-2xl flex items-center justify-center gap-3 transform group-hover:scale-105 transition duration-200 active:scale-95 shadow-2xl shadow-red-500/50 group-hover:shadow-pink-500/50">
-                  <RotateCcw className="w-6 h-6 sm:w-6 sm:h-6" />
-                  <span className="text-lg sm:text-xl md:text-2xl">RESET</span>
-                </div>
-              </button>
-
-              <button className="w-full sm:w-72 md:w-96 group relative overflow-hidden rounded-2xl">
-                <Link href={"/menu"}>
-                  <div className="absolute inset-0 bg-gradient-to-r from-green-600 via-green-500 to-green-600 opacity-100 group-hover:opacity-0 transition duration-300"></div>
-                  <div className="absolute inset-0 bg-gradient-to-r from-green-500 to-blue-600 opacity-0 group-hover:opacity-100 transition duration-300"></div>
-                  <div className="relative bg-gradient-to-r from-green-600 to-green-500 group-hover:from-green-500 group-hover:to-blue-600 text-white font-black py-3 px-3 rounded-2xl flex items-center justify-center gap-3 transform group-hover:scale-105 transition duration-200 active:scale-95 shadow-2xl shadow-green-500/50 group-hover:shadow-blue-500/50">
-                    <House className="w-6 h-5 sm:w-7 sm:h-6" />
-                    <span className="text-lg sm:text-xl md:text-2xl">
-                      Main Menu
-                    </span>
-                  </div>
-                </Link>
-              </button>
-            </div>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={restartGame}
+              className="group relative overflow-hidden rounded-xl w-full"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-orange-600 to-orange-500 opacity-100 group-hover:opacity-0 transition"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-600 opacity-0 group-hover:opacity-100 transition"></div>
+              <div className="relative bg-gradient-to-r from-orange-600 to-orange-500 group-hover:from-orange-500 group-hover:to-red-600 text-white font-bold py-2 sm:py-3 px-4 rounded-xl flex items-center justify-center gap-2 transform group-hover:scale-105 transition active:scale-95 shadow-lg shadow-orange-500/30">
+                <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="text-sm sm:text-base">New Game</span>
+              </div>
+            </button>
           </div>
         )}
       </div>
+
+      {/* Game Over Modal */}
+      {gameOver && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50 p-4">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-6 sm:p-8 text-center border border-slate-700 relative max-w-sm w-full">
+            {/* Animated Points */}
+            {animatedPoints !== null && (
+              <div className={`absolute -top-8 left-1/2 transform -translate-x-1/2 font-bold text-2xl pointer-events-none ${
+                isPositive ? "text-green-400 animate-bounce" : "text-red-500 animate-pulse"
+              }`}>
+                {isPositive ? (
+                  <div className="flex items-center gap-1">
+                    <ArrowUpCircle className="w-6 h-6" /> +{animatedPoints}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <ArrowDownCircle className="w-6 h-6" /> {animatedPoints}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Trophy className="w-12 h-12 sm:w-14 sm:h-14 mx-auto text-yellow-400 mb-4 animate-bounce" />
+            <h2 className="text-2xl sm:text-3xl font-black text-white mb-4">
+              {score && score > 0 ? "You Won!" : "Game Over"}
+            </h2>
+
+            {/* Stats */}
+            <div className="bg-slate-700/50 rounded-xl p-4 mb-6 space-y-2 text-sm sm:text-base">
+              <div className="flex justify-between text-slate-300">
+                <span>Score:</span>
+                <span className="text-green-400 font-bold">{animatedPoints}</span>
+              </div>
+              {score === 0 && currentRow === MAX_TRIES && (
+                <div className="flex justify-between text-slate-300">
+                  <span>Score Lost:</span>
+                  <span className="text-red-400 font-bold">{animatedPoints}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-slate-300">
+                <span>Attempts Used:</span>
+                <span className="text-yellow-400 font-bold">6</span>
+              </div>
+              {timeTaken !== null && (
+                <div className="flex justify-between text-slate-300">
+                  <span>Time:</span>
+                  <span className="text-blue-400 font-bold">{timeTaken}s</span>
+                </div>
+              )}
+              <div className="border-t border-slate-600 pt-2 mt-2">
+                <div className="flex justify-between text-slate-300">
+                  <span>Word:</span>
+                  <span className="text-green-400 font-bold">{targetWord}</span>
+                </div>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span>Category:</span>
+                <span className="text-yellow-400 font-bold">{category}</span>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={restartGame}
+                className="group relative overflow-hidden flex-1 rounded-lg"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-green-600 to-green-500 opacity-100 group-hover:opacity-0 transition"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-green-500 to-blue-600 opacity-0 group-hover:opacity-100 transition"></div>
+                <div className="relative bg-gradient-to-r from-green-600 to-green-500 group-hover:from-green-500 group-hover:to-blue-600 text-white font-bold py-2 sm:py-3 px-3 sm:px-4 rounded-lg flex items-center justify-center gap-2 transform group-hover:scale-105 transition active:scale-95 shadow-lg">
+                  <RefreshCcw className="w-4 h-4" />
+                  <span className="text-xs sm:text-sm">Play Again</span>
+                </div>
+              </button>
+              <Link href="/menu" className="group relative overflow-hidden flex-1 rounded-lg">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-500 opacity-100 group-hover:opacity-0 transition"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 opacity-0 group-hover:opacity-100 transition"></div>
+                <div className="relative bg-gradient-to-r from-blue-600 to-blue-500 group-hover:from-blue-500 group-hover:to-purple-600 text-white font-bold py-2 sm:py-3 px-3 sm:px-4 rounded-lg flex items-center justify-center gap-2 transform group-hover:scale-105 transition active:scale-95 shadow-lg">
+                  <House className="w-4 h-4" />
+                  <span className="text-xs sm:text-sm">Menu</span>
+                </div>
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
