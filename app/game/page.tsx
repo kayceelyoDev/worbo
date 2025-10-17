@@ -11,9 +11,12 @@ import {
   RefreshCcw,
   Clock,
   AlertTriangle,
+  ArrowUpCircle,
+  ArrowDownCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
+import { getRank } from "@/lib/getRank";
 
 const WORD_LENGTH = 5;
 const MAX_TRIES = 6;
@@ -29,6 +32,8 @@ export default function GameUI() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [endTime, setEndTime] = useState<number | null>(null);
   const [score, setScore] = useState<number | null>(null);
+  const [animatedPoints, setAnimatedPoints] = useState<number | null>(null);
+  const [isPositive, setIsPositive] = useState<boolean>(false);
   const [gameOver, setGameOver] = useState<boolean>(false);
   const [usedKeys, setUsedKeys] = useState<Record<string, string>>({});
   const router = useRouter();
@@ -36,6 +41,8 @@ export default function GameUI() {
   const guessesRef = useRef<string[]>(guesses);
   const currentRowRef = useRef<number>(currentRow);
   const targetWordRef = useRef<string>(targetWord);
+
+  const hasFetchedRef = useRef(false); // ✅ guard to prevent double fetch
 
   useEffect(() => {
     guessesRef.current = guesses;
@@ -49,10 +56,12 @@ export default function GameUI() {
     targetWordRef.current = targetWord;
   }, [targetWord]);
 
-  // Auth check and fetch profile
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
       if (error || !user) {
         router.push("/auth/signin");
         return;
@@ -75,16 +84,34 @@ export default function GameUI() {
     checkAuth();
   }, [router]);
 
-  // Categories compatible with API
-  const categories = ["Animals", "Companies", "Sports", "Brands", "Planets", "Countries", "Fruits", "Colors"];
+  const categories = [
+    "animals",
+    "countries",
+    "sports",
+    "fruits",
+    "colors",
+    "vehicles",
+    "technology",
+    "movies",
+    "music",
+    "planets",
+    "occupations",
+    "flowers",
+    "emotions",
+    "foods",
+    "bodyparts",
+    "brands",
+    "companies",
+    "birds",
+    "capital",
+  ];
 
-
-  // Fetch a random word + category (with validation)
   const fetchWord = async () => {
     setLoading(true);
     setMessage("");
     let attempts = 0;
-    const maxAttempts = 5; // Retry up to 5 times
+    const maxAttempts = 7;
+
     while (attempts < maxAttempts) {
       try {
         const randomCategory =
@@ -93,65 +120,106 @@ export default function GameUI() {
         const res = await fetch(
           `https://random-words-api.kushcreates.com/api?category=${randomCategory}&length=${WORD_LENGTH}&words=1`
         );
-        const data = await res.json();
 
-        if (data.length > 0 && data[0].word.length === WORD_LENGTH) {
-          setTargetWord(data[0].word.toUpperCase());
-          setCategory(randomCategory);
+        if (!res.ok) throw new Error("Failed API response");
+
+        const data = await res.json();
+        const fetched = data?.[0]?.word?.toUpperCase?.();
+
+        if (
+          fetched &&
+          fetched.length === WORD_LENGTH &&
+          /^[A-Z]+$/.test(fetched)
+        ) {
+          setTargetWord(fetched);
+          setCategory(
+            randomCategory.charAt(0).toUpperCase() + randomCategory.slice(1)
+          );
           setStartTime(Date.now());
           setLoading(false);
+          console.log("Fetched Word:", fetched, "Category:", randomCategory);
           return;
         } else {
           attempts++;
         }
-      } catch {
+      } catch (err) {
+        console.error("Fetch attempt failed:", err);
         attempts++;
       }
     }
-    setMessage("Failed to load word. Try refreshing.");
+
+    setMessage("Failed to load a word after multiple attempts. Try refreshing.");
     setLoading(false);
   };
 
-
   useEffect(() => {
+    // ✅ Prevent duplicate fetch in React StrictMode
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     fetchWord();
   }, []);
 
-  // Save or update score
-  const saveScore = async (newScore: number) => {
-    if (!userProfile) return;
+  const saveScore = async (newScore: number, success: boolean) => {
+  if (!userProfile) return;
 
-    try {
-      const { data: existing, error: fetchError } = await supabase
-        .from("scores_table")
-        .select("id, score")
-        .eq("user_id", userProfile.id)
-        .single();
+  try {
+    const { data: existing, error: fetchError } = await supabase
+      .from("scores_table")
+      .select("id, score, rank")
+      .eq("user_id", userProfile.id)
+      .single();
 
-      if (fetchError && fetchError.code !== "PGRST116") {
-        console.error("Error fetching existing score:", fetchError);
-        return;
-      }
-
-      if (existing) {
-        const totalScore = existing.score + newScore;
-        const { error: updateError } = await supabase
-          .from("scores_table")
-          .update({ score: totalScore })
-          .eq("id", existing.id);
-        if (updateError) console.error("Error updating score:", updateError);
-      } else {
-        const { error: insertError } = await supabase
-          .from("scores_table")
-          .insert([{ user_id: userProfile.id, score: newScore }]);
-        if (insertError) console.error("Error inserting score:", insertError);
-      }
-    } catch (err) {
-      console.error("Unexpected error saving score:", err);
+    if (fetchError && fetchError.code !== "PGRST116") {
+      console.error("Error fetching existing score:", fetchError);
+      return;
     }
-  };
 
-  // Handle key presses
+    let updatedScore = newScore;
+
+    if (existing) {
+      if (!success) {
+        const currentScore = existing.score;
+        let deduction = 0;
+        if (currentScore < 10000) deduction = 200;
+        else if (currentScore < 15000) deduction = 300;
+        else if (currentScore < 20000) deduction = 500;
+        else if (currentScore < 25000) deduction = 600;
+        else if (currentScore < 30000) deduction = 650;
+        else deduction = 700;
+
+        updatedScore = Math.max(0, existing.score - deduction);
+        setAnimatedPoints(-deduction);
+        setIsPositive(false);
+      } else {
+        updatedScore = existing.score + newScore;
+        setAnimatedPoints(newScore);
+        setIsPositive(true);
+      }
+
+      const { name: rankName } = getRank(updatedScore);
+
+      const { error: updateError } = await supabase
+        .from("scores_table")
+        .update({ score: updatedScore, rank: rankName })
+        .eq("id", existing.id);
+
+      if (updateError) console.error("Error updating score:", updateError);
+    } else {
+      const { name: rankName } = getRank(newScore);
+
+      const { error: insertError } = await supabase
+        .from("scores_table")
+        .insert([{ user_id: userProfile.id, score: newScore, rank: rankName }]);
+
+      if (insertError) console.error("Error inserting score:", insertError);
+      setAnimatedPoints(newScore);
+      setIsPositive(true);
+    }
+  } catch (err) {
+    console.error("Unexpected error saving score:", err);
+  }
+};
+
   const handleKeyPress = async (rawKey: string) => {
     if (!userProfile || loading || gameOver) return;
 
@@ -181,15 +249,19 @@ export default function GameUI() {
       setUsedKeys(newKeys);
 
       if (guess === targetWordRef.current) {
+        const baseScore = 50;
+        const timeBonus = Math.max(0, 500 - timeTaken * 5);
+        const attemptPenalty = (rowIndex + 1) * 50;
         const finalScore = Math.max(
-          0,
-          1000 - (timeTaken * 5 + (rowIndex + 1) * 100)
+          baseScore,
+          baseScore + timeBonus - attemptPenalty
         );
+
         setScore(finalScore);
         setEndTime(end);
         setMessage("You got it!");
         setGameOver(true);
-        await saveScore(finalScore);
+        await saveScore(finalScore, true);
         return;
       }
 
@@ -198,7 +270,7 @@ export default function GameUI() {
         setEndTime(end);
         setMessage(`Answer: ${targetWordRef.current}`);
         setGameOver(true);
-        await saveScore(0);
+        await saveScore(0, false);
         return;
       }
 
@@ -226,7 +298,6 @@ export default function GameUI() {
     }
   };
 
-  // Global keyboard listener
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Enter") return handleKeyPress("ENTER");
@@ -245,9 +316,9 @@ export default function GameUI() {
     setEndTime(null);
     setGameOver(false);
     setUsedKeys({});
-    await fetchWord(); // Ensure it fetches a valid 5-letter word
+    setAnimatedPoints(null);
+    await fetchWord();
   };
-
 
   const keyboardLayout: string[][] = [
     "QWERTYUIOP".split(""),
@@ -293,14 +364,14 @@ export default function GameUI() {
         <Sparkles className="w-6 h-6 text-yellow-400 animate-pulse" />
       </div>
 
-      {/* Display category */}
       {category && !gameOver && (
         <div className="text-slate-300 text-center mb-3">
-          <p>Category: <span className="text-yellow-400">{category}</span></p>
+          <p>
+            Category: <span className="text-yellow-400">{category}</span>
+          </p>
         </div>
       )}
 
-      {/* Word Grid */}
       <div className="w-full max-w-[380px] xs:max-w-[420px] sm:max-w-[440px] px-1">
         <div className="space-y-2 mb-4">
           {guesses.map((word, rowIdx) => (
@@ -321,7 +392,6 @@ export default function GameUI() {
           ))}
         </div>
 
-        {/* Message */}
         {message && (
           <div className="text-slate-300 text-center mb-3 flex items-center justify-center gap-1">
             <AlertTriangle className="w-4 h-4 text-yellow-400" />
@@ -331,33 +401,53 @@ export default function GameUI() {
 
         {/* Keyboard */}
         <div className="w-full max-w-sm sm:max-w-md mx-auto px-1 sm:px-2 space-y-2">
+          {/* Regular letter keys */}
           {keyboardLayout.map((row, rIdx) => (
-            <div key={rIdx} className="flex justify-center flex-wrap gap-1 sm:gap-2 w-full">
-              {row.map((k) => {
-                const isWide = k === "ENTER" || k === "DEL";
-                const keySizing = isWide
-                  ? "flex-[1.3] sm:flex-[1.2] md:flex-[1.1]"
-                  : "flex-1";
-                return (
+            <div
+              key={rIdx}
+              className="flex justify-center flex-wrap gap-1 sm:gap-2 w-full"
+            >
+              {row
+                .filter((k) => k !== "ENTER" && k !== "DEL")
+                .map((k) => (
                   <button
                     key={k}
                     onClick={() => handleKeyPress(k)}
                     className={`${getKeyColor(
                       k
-                    )} hover:opacity-90 active:scale-95 font-semibold rounded-md shadow-md transition ${keySizing} min-w-[auto] max-w-[6rem] px-2 py-2 sm:px-2 sm:py-3 text-xs sm:text-sm md:text-base`}
+                    )} hover:opacity-90 active:scale-95 font-semibold rounded-md shadow-md transition flex-1 min-w-[auto] max-w-[6rem] px-2 py-2 sm:px-2 sm:py-3 text-xs sm:text-sm md:text-base`}
                   >
                     <span className="select-none">{k}</span>
                   </button>
-                );
-              })}
+                ))}
             </div>
           ))}
+
+          {/* Bottom row with ENTER and DEL */}
+          <div className="flex justify-center gap-2 mt-3">
+            <button
+              onClick={() => handleKeyPress("ENTER")}
+              className={`${getKeyColor(
+                "ENTER"
+              )} hover:opacity-90 active:scale-95 font-semibold rounded-md shadow-md transition flex-1 max-w-[8rem] px-4 py-3 sm:py-4 text-sm sm:text-base`}
+            >
+              ENTER
+            </button>
+            <button
+              onClick={() => handleKeyPress("DEL")}
+              className={`${getKeyColor(
+                "DEL"
+              )} hover:opacity-90 active:scale-95 font-semibold rounded-md shadow-md transition flex-1 max-w-[8rem] px-4 py-3 sm:py-4 text-sm sm:text-base`}
+            >
+              DEL
+            </button>
+          </div>
         </div>
 
-        {/* End Game Modal */}
+
         {gameOver && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-            <div className="bg-slate-800 rounded-2xl shadow-lg p-6 text-center w-[90%] max-w-sm border border-slate-700">
+            <div className="bg-slate-800 rounded-2xl shadow-lg p-6 text-center w-[90%] max-w-sm border border-slate-700 relative">
               <Trophy className="w-10 h-10 mx-auto text-yellow-400 mb-3" />
               <h2 className="text-2xl font-bold text-white mb-2">Game Over</h2>
               <div className="text-slate-300 text-sm space-y-1 mb-4">
@@ -371,7 +461,28 @@ export default function GameUI() {
                   Category: <span className="text-yellow-400">{category}</span>
                 </p>
               </div>
-              <div className="flex justify-center gap-3">
+
+              {/* ANIMATED POINTS */}
+              {animatedPoints !== null && (
+                <div
+                  className={`absolute -top-4 left-1/2 transform -translate-x-1/2 transition-all duration-700 ease-out ${isPositive
+                      ? "text-green-400 animate-bounce"
+                      : "text-red-500 animate-pulse"
+                    }`}
+                >
+                  {isPositive ? (
+                    <div className="flex items-center gap-1 font-bold text-xl">
+                      <ArrowUpCircle className="w-5 h-5" /> +{animatedPoints}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 font-bold text-xl">
+                      <ArrowDownCircle className="w-5 h-5" /> {animatedPoints}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-center gap-3 mt-6">
                 <button
                   onClick={restartGame}
                   className="flex items-center gap-1 px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg text-white font-semibold transition"
@@ -392,7 +503,7 @@ export default function GameUI() {
         {!gameOver && (
           <div className="flex flex-col items-center gap-2 justify-center mt-4">
             <div className="flex flex-col gap-4 w-full items-center justify-center px-2">
-              {/* RESET BUTTON */}
+              
               <button
                 className="w-full sm:w-72 md:w-96 group relative overflow-hidden rounded-2xl"
                 onClick={restartGame}
@@ -405,14 +516,15 @@ export default function GameUI() {
                 </div>
               </button>
 
-              {/* START GAME BUTTON */}
               <button className="w-full sm:w-72 md:w-96 group relative overflow-hidden rounded-2xl">
                 <Link href={"/menu"}>
                   <div className="absolute inset-0 bg-gradient-to-r from-green-600 via-green-500 to-green-600 opacity-100 group-hover:opacity-0 transition duration-300"></div>
                   <div className="absolute inset-0 bg-gradient-to-r from-green-500 to-blue-600 opacity-0 group-hover:opacity-100 transition duration-300"></div>
                   <div className="relative bg-gradient-to-r from-green-600 to-green-500 group-hover:from-green-500 group-hover:to-blue-600 text-white font-black py-3 px-3 rounded-2xl flex items-center justify-center gap-3 transform group-hover:scale-105 transition duration-200 active:scale-95 shadow-2xl shadow-green-500/50 group-hover:shadow-blue-500/50">
                     <House className="w-6 h-5 sm:w-7 sm:h-6" />
-                    <span className="text-lg sm:text-xl md:text-2xl">Main Menu</span>
+                    <span className="text-lg sm:text-xl md:text-2xl">
+                      Main Menu
+                    </span>
                   </div>
                 </Link>
               </button>
