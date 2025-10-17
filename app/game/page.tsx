@@ -139,7 +139,7 @@ export default function GameUI() {
           );
           setStartTime(Date.now());
           setLoading(false);
-          console.log("Fetched Word:", fetched, "Category:", randomCategory);
+          
           return;
         } else {
           attempts++;
