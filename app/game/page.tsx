@@ -445,7 +445,7 @@ export default function GameUI() {
         {/* Keyboard */}
         <div className="space-y-1.5 sm:space-y-2 mb-6">
           {keyboardLayout.map((row, rIdx) => (
-            <div key={rIdx} className="flex justify-center gap-1 sm:gap-1.5 flex-wrap">
+            <div key={rIdx} className="flex   justify-center gap-1 sm:gap-1  flex-wrap sm:flex-nowrap">
               {row.map((k) => {
                 if (k === "ENTER" || k === "DEL") return null;
                 return (
@@ -453,7 +453,7 @@ export default function GameUI() {
                     key={k}
                     onClick={() => handleKeyPress(k)}
                     disabled={gameOver}
-                    className={`${getKeyColor(k)} px-2 sm:px-3 py-2 sm:py-3 rounded-lg font-semibold text-xs sm:text-sm transition transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md`}
+                    className={`${getKeyColor(k)} px-2  sm:px-4 py-3 sm:py-5 rounded-lg font-semibold text-xs sm:text-lg transition transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md`}
                   >
                     {k}
                   </button>
