@@ -437,7 +437,7 @@ export default function GameUI() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-3 sm:p-4 relative overflow-hidden">
-      {/* Animated background grid */}
+
       <div className="fixed inset-0 opacity-10 pointer-events-none">
         <div className="absolute inset-0" style={{
           backgroundImage: 'linear-gradient(0deg, transparent 24%, rgba(255,255,255,.05) 25%, rgba(255,255,255,.05) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.05) 75%, rgba(255,255,255,.05) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(255,255,255,.05) 25%, rgba(255,255,255,.05) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.05) 75%, rgba(255,255,255,.05) 76%, transparent 77%, transparent)',
@@ -445,11 +445,11 @@ export default function GameUI() {
         }}></div>
       </div>
 
-      {/* Floating gradient graphics */}
+
       <div className="fixed -top-40 -left-40 w-80 h-80 rounded-full bg-green-500/10 blur-3xl pointer-events-none"></div>
       <div className="fixed -bottom-40 -right-40 w-80 h-80 rounded-full bg-blue-500/10 blur-3xl pointer-events-none"></div>
 
-      {/* Top Bar */}
+
       <div className="relative z-10 w-full flex items-center justify-between mb-6 sm:mb-8 px-2">
         <Link href="/menu" className="flex items-center gap-2 text-slate-300 hover:text-green-400 transition transform hover:scale-110">
           <House className="w-5 h-5" />
@@ -467,7 +467,7 @@ export default function GameUI() {
         <div className="w-5 h-5 sm:w-6 sm:h-6"></div>
       </div>
 
-      {/* Category & Attempts */}
+      
       {category && !gameOver && (
         <div className="relative z-10 flex flex-col items-center gap-2 mb-4 sm:mb-6">
           <div className="flex items-center gap-2 text-slate-300">
@@ -481,7 +481,7 @@ export default function GameUI() {
         </div>
       )}
 
-      {/* Game Grid */}
+    
       <div className="relative z-10 w-full max-w-md mx-auto">
         <div className="space-y-2 mb-6">
           {guesses.map((word, rowIdx) => (
@@ -504,7 +504,7 @@ export default function GameUI() {
           ))}
         </div>
 
-        {/* Message */}
+ 
         {message && (
           <div className={`text-center mb-4 flex items-center justify-center gap-2 px-4 py-2 rounded-lg ${
             message.includes("Not enough") 
@@ -518,10 +518,10 @@ export default function GameUI() {
           </div>
         )}
 
-        {/* Keyboard */}
+
         <div className="space-y-1.5 sm:space-y-2 mb-6">
           {keyboardLayout.map((row, rIdx) => (
-            <div key={rIdx} className="flex   justify-center gap-1 sm:gap-1  flex-wrap sm:flex-nowrap">
+            <div key={rIdx} className="flex justify-center gap-1 sm:gap-1 flex-nowrap">
               {row.map((k) => {
                 if (k === "ENTER" || k === "DEL") return null;
                 return (
@@ -529,7 +529,7 @@ export default function GameUI() {
                     key={k}
                     onClick={() => handleKeyPress(k)}
                     disabled={gameOver || restarting}
-                    className={`${getKeyColor(k)} px-2  sm:px-4 py-3 sm:py-5 rounded-lg font-semibold text-xs sm:text-lg transition transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md`}
+                    className={`${getKeyColor(k)} px-2.5  sm:px-6 py-3 sm:py-5 rounded-lg font-semibold text-xs sm:text-lg transition transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md`}
                   >
                     {k}
                   </button>
@@ -538,7 +538,7 @@ export default function GameUI() {
             </div>
           ))}
 
-          {/* ENTER and DEL */}
+         
           <div className="flex justify-center gap-1 sm:gap-1.5 mt-2 sm:mt-3">
             <button
               onClick={() => handleKeyPress("ENTER")}
@@ -557,7 +557,7 @@ export default function GameUI() {
           </div>
         </div>
 
-        {/* Action Buttons */}
+       
         {!gameOver && (
           <div className="flex flex-col gap-2">
             <button
@@ -578,7 +578,7 @@ export default function GameUI() {
         )}
       </div>
 
-      {/* Restart Confirmation Modal */}
+  
       {showRestartConfirm && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50 p-4">
           <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-6 sm:p-8 text-center border border-slate-700 relative max-w-sm w-full">
@@ -605,7 +605,7 @@ export default function GameUI() {
               </div>
             </div>
 
-            {/* Buttons */}
+          
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={cancelRestart}
@@ -632,7 +632,7 @@ export default function GameUI() {
         </div>
       )}
 
-      {/* Game Over Modal */}
+     
       {gameOver && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50 p-4">
           <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-6 sm:p-8 text-center border border-slate-700 relative max-w-sm w-full">
@@ -658,7 +658,7 @@ export default function GameUI() {
               {score && score > 0 ? "You Won!" : "Game Over"}
             </h2>
 
-            {/* Stats */}
+           
             <div className="bg-slate-700/50 rounded-xl p-4 mb-6 space-y-2 text-sm sm:text-base">
               <div className="flex justify-between text-slate-300">
                 <span>Score:</span>
@@ -692,7 +692,7 @@ export default function GameUI() {
               </div>
             </div>
 
-            {/* Buttons */}
+           
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 onClick={restartGame}

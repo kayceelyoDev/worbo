@@ -113,7 +113,7 @@ export default function Leaderboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white font-sans">
-      {/* Animated background grid */}
+     
       <div className="fixed inset-0 opacity-10 pointer-events-none">
         <div className="absolute inset-0" style={{
           backgroundImage: 'linear-gradient(0deg, transparent 24%, rgba(255,255,255,.05) 25%, rgba(255,255,255,.05) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.05) 75%, rgba(255,255,255,.05) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(255,255,255,.05) 25%, rgba(255,255,255,.05) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.05) 75%, rgba(255,255,255,.05) 76%, transparent 77%, transparent)',
@@ -121,11 +121,11 @@ export default function Leaderboard() {
         }}></div>
       </div>
 
-      {/* Floating gradient graphics */}
+  
       <div className="fixed -top-40 -left-40 w-96 h-96 rounded-full bg-yellow-500/10 blur-3xl pointer-events-none"></div>
       <div className="fixed -bottom-40 -right-40 w-96 h-96 rounded-full bg-green-500/10 blur-3xl pointer-events-none"></div>
 
-      {/* Top Nav */}
+    
       <nav className="fixed top-0 left-0 right-0 bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50 z-50">
         <div className="w-full px-4 py-4">
           <div className="flex items-center justify-between">
@@ -144,7 +144,7 @@ export default function Leaderboard() {
         </div>
       </nav>
 
-      {/* Header and Filter */}
+  
       <div className="relative z-10 pt-20 pb-6 px-3 sm:px-4">
         <div className="flex flex-col gap-4 sm:gap-6">
           <div className="flex flex-col gap-2">
@@ -160,7 +160,6 @@ export default function Leaderboard() {
             <p className="text-slate-400 text-xs sm:text-sm pl-12 sm:pl-14">Compete with your friends</p>
           </div>
 
-          {/* Rank Filter */}
           <div className="w-60">
             <label className="block text-xs sm:text-sm font-semibold text-slate-300 mb-2">Filter by Rank</label>
             <select
@@ -178,7 +177,7 @@ export default function Leaderboard() {
         </div>
       </div>
 
-      {/* Main Content */}
+
       <div className="relative z-10 px-3 sm:px-4 pb-12">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -192,7 +191,7 @@ export default function Leaderboard() {
           </div>
         ) : (
           <>
-            {/* Top 3 Podium */}
+           
             {topThree.length > 0 && (
               <div className="mb-8 sm:mb-12">
                 <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
@@ -201,7 +200,7 @@ export default function Leaderboard() {
                 </h2>
                 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
-                  {/* 1st Place */}
+               
                   {topThree[0] && (
                     <div className="lg:order-2">
                       <div className="group bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 backdrop-blur border-2 border-yellow-400/50 hover:border-yellow-300 rounded-xl sm:rounded-2xl p-4 sm:p-6 relative overflow-hidden transition transform hover:scale-105 duration-300 shadow-2xl shadow-yellow-500/30">
@@ -229,7 +228,7 @@ export default function Leaderboard() {
                     </div>
                   )}
 
-                  {/* 2nd Place */}
+                 
                   {topThree[1] && (
                     <div className="lg:order-1">
                       <div className="group bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur border border-slate-700/50 hover:border-slate-400 rounded-xl sm:rounded-2xl p-4 sm:p-6 relative overflow-hidden transition transform hover:scale-105 duration-300 shadow-lg">
@@ -256,7 +255,7 @@ export default function Leaderboard() {
                     </div>
                   )}
 
-                  {/* 3rd Place */}
+                
                   {topThree[2] && (
                     <div className="lg:order-3">
                       <div className="group bg-gradient-to-br from-slate-800/80 to-slate-900/80 backdrop-blur border border-slate-700/50 hover:border-orange-400 rounded-xl sm:rounded-2xl p-4 sm:p-6 relative overflow-hidden transition transform hover:scale-105 duration-300 shadow-lg">
@@ -286,7 +285,7 @@ export default function Leaderboard() {
               </div>
             )}
 
-            {/* Rest of Leaderboard */}
+        
             {rest.length > 0 && (
               <div>
                 <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2">

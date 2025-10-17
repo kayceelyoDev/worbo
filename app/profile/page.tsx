@@ -89,7 +89,7 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white font-sans overflow-x-hidden">
-      {/* Animated background grid */}
+
       <div className="fixed inset-0 opacity-10 pointer-events-none">
         <div className="absolute inset-0" style={{
           backgroundImage: 'linear-gradient(0deg, transparent 24%, rgba(255,255,255,.05) 25%, rgba(255,255,255,.05) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.05) 75%, rgba(255,255,255,.05) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(255,255,255,.05) 25%, rgba(255,255,255,.05) 26%, transparent 27%, transparent 74%, rgba(255,255,255,.05) 75%, rgba(255,255,255,.05) 76%, transparent 77%, transparent)',
@@ -97,11 +97,11 @@ export default function ProfilePage() {
         }}></div>
       </div>
 
-      {/* Floating gradient graphics */}
+
       <div className="fixed -top-40 -left-40 w-96 h-96 rounded-full bg-green-500/10 blur-3xl pointer-events-none"></div>
       <div className="fixed -bottom-40 -right-40 w-96 h-96 rounded-full bg-blue-500/10 blur-3xl pointer-events-none"></div>
 
-      {/* Top Navigation */}
+
       <nav className="fixed top-0 left-0 right-0 bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50 z-50">
         <div className="w-full px-3 sm:px-4 py-4">
           <div className="flex items-center justify-between">
@@ -120,9 +120,9 @@ export default function ProfilePage() {
         </div>
       </nav>
 
-      {/* Main Content */}
+
       <div className="relative z-10 pt-20 px-3 sm:px-4 pb-12">
-        {/* Header */}
+
         <div className="text-center mb-8 sm:mb-12">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-wider">
             <span className="text-white">MY</span>
@@ -132,9 +132,9 @@ export default function ProfilePage() {
         </div>
 
         <div className="max-w-4xl mx-auto">
-          {/* Player Card */}
+
           <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur border border-slate-700/50 rounded-2xl sm:rounded-3xl p-6 sm:p-8 mb-8 shadow-2xl">
-            {/* Player Info Header */}
+      
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8 mb-8 pb-8 border-b border-slate-700/50">
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center shadow-lg shadow-green-500/50 flex-shrink-0">
                 <User className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
@@ -149,9 +149,9 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Stats Grid */}
+ 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-              {/* Score Stat */}
+      
               <div className="bg-gradient-to-br from-green-500/20 to-green-600/10 border border-green-400/30 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:border-green-400/60 transition">
                 <div className="flex items-center justify-center gap-2 mb-3">
                   <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-green-400" />
@@ -161,7 +161,7 @@ export default function ProfilePage() {
                 <p className="text-slate-400 text-xs sm:text-sm mt-2">Total Points</p>
               </div>
 
-              {/* Leaderboard Rank */}
+            
               <div className="bg-gradient-to-br from-yellow-500/20 to-yellow-600/10 border border-yellow-400/30 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:border-yellow-400/60 transition">
                 <div className="flex items-center justify-center gap-2 mb-3">
                   <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400" />
@@ -173,7 +173,7 @@ export default function ProfilePage() {
                 <p className="text-slate-400 text-xs sm:text-sm mt-2">Leaderboard Position</p>
               </div>
 
-              {/* Tier */}
+         
               <div className="bg-gradient-to-br from-purple-500/20 to-purple-600/10 border border-purple-400/30 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:border-purple-400/60 transition">
                 <div className="flex items-center justify-center gap-2 mb-3">
                   <Crown className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
@@ -185,7 +185,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Trophy Display */}
+      
           <div className="bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur border border-slate-700/50 rounded-2xl sm:rounded-3xl p-6 sm:p-8 mb-8 shadow-2xl text-center">
             <div className="flex items-center justify-center gap-2 mb-6">
               <Star className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400" />
@@ -204,7 +204,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Action Buttons */}
+  
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <Link href="/leaderboard" className="group relative overflow-hidden flex-1">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-500 opacity-0 group-hover:opacity-100 transition blur-sm"></div>
