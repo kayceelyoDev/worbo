@@ -15,6 +15,8 @@ import {
   ArrowDownCircle,
   Flame,
   Target,
+  X,
+  AlertCircle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
@@ -38,6 +40,8 @@ export default function GameUI() {
   const [isPositive, setIsPositive] = useState<boolean>(false);
   const [gameOver, setGameOver] = useState<boolean>(false);
   const [usedKeys, setUsedKeys] = useState<Record<string, string>>({});
+  const [showRestartConfirm, setShowRestartConfirm] = useState<boolean>(false);
+  const [restarting, setRestarting] = useState<boolean>(false);
   const router = useRouter();
 
   const guessesRef = useRef<string[]>(guesses);
@@ -221,6 +225,46 @@ export default function GameUI() {
     }
   };
 
+  const deductPointsForRestart = async () => {
+    if (!userProfile) return;
+
+    try {
+      const { data: existing, error: fetchError } = await supabase
+        .from("scores_table")
+        .select("id, score, rank")
+        .eq("user_id", userProfile.id)
+        .single();
+
+      if (fetchError && fetchError.code !== "PGRST116") {
+        console.error("Error fetching existing score:", fetchError);
+        return;
+      }
+
+      if (existing) {
+        const deduction = 50;
+        const updatedScore = Math.max(0, existing.score - deduction);
+        
+        const { name: rankName } = getRank(updatedScore);
+
+        const { error: updateError } = await supabase
+          .from("scores_table")
+          .update({ score: updatedScore, rank: rankName })
+          .eq("id", existing.id);
+
+        if (updateError) {
+          console.error("Error updating score:", updateError);
+          return;
+        }
+
+        // Show deduction animation
+        setAnimatedPoints(-deduction);
+        setIsPositive(false);
+      }
+    } catch (err) {
+      console.error("Unexpected error deducting points:", err);
+    }
+  };
+
   const handleKeyPress = async (rawKey: string) => {
     if (!userProfile || loading || gameOver) return;
 
@@ -313,7 +357,32 @@ export default function GameUI() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [loading, gameOver, userProfile]);
 
-  const restartGame = async () => {
+  const handleRestartClick = () => {
+    setShowRestartConfirm(true);
+  };
+
+  const confirmRestart = async () => {
+    setShowRestartConfirm(false);
+    setRestarting(true);
+    
+    // Deduct 50 points
+    await deductPointsForRestart();
+    
+    // Show the current word
+    setMessage(`Game restarted! The word was: ${targetWord}`);
+    
+    // Wait for 3 seconds before starting new game
+    setTimeout(() => {
+      resetGame();
+      setRestarting(false);
+    }, 3000);
+  };
+
+  const cancelRestart = () => {
+    setShowRestartConfirm(false);
+  };
+
+  const resetGame = async () => {
     setGuesses(Array(MAX_TRIES).fill(""));
     setCurrentRow(0);
     setMessage("");
@@ -323,6 +392,11 @@ export default function GameUI() {
     setUsedKeys({});
     setAnimatedPoints(null);
     await fetchWord();
+  };
+
+  const restartGame = async () => {
+    // For game over state, restart without confirmation
+    resetGame();
   };
 
   const keyboardLayout: string[][] = [
@@ -435,6 +509,8 @@ export default function GameUI() {
           <div className={`text-center mb-4 flex items-center justify-center gap-2 px-4 py-2 rounded-lg ${
             message.includes("Not enough") 
               ? "bg-red-500/20 border border-red-400/50 text-red-300" 
+              : message.includes("Game restarted")
+              ? "bg-orange-500/20 border border-orange-400/50 text-orange-300"
               : "bg-slate-700/50 border border-slate-600 text-slate-300"
           }`}>
             <AlertTriangle className="w-4 h-4" />
@@ -452,7 +528,7 @@ export default function GameUI() {
                   <button
                     key={k}
                     onClick={() => handleKeyPress(k)}
-                    disabled={gameOver}
+                    disabled={gameOver || restarting}
                     className={`${getKeyColor(k)} px-2  sm:px-4 py-3 sm:py-5 rounded-lg font-semibold text-xs sm:text-lg transition transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md`}
                   >
                     {k}
@@ -466,14 +542,14 @@ export default function GameUI() {
           <div className="flex justify-center gap-1 sm:gap-1.5 mt-2 sm:mt-3">
             <button
               onClick={() => handleKeyPress("ENTER")}
-              disabled={gameOver}
+              disabled={gameOver || restarting}
               className={`${getKeyColor("ENTER")} px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-semibold text-xs sm:text-sm flex-1 max-w-[5rem] transition transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md`}
             >
               ENTER
             </button>
             <button
               onClick={() => handleKeyPress("DEL")}
-              disabled={gameOver}
+              disabled={gameOver || restarting}
               className={`${getKeyColor("DEL")} px-3 sm:px-4 py-2 sm:py-3 rounded-lg font-semibold text-xs sm:text-sm flex-1 max-w-[5rem] transition transform hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md`}
             >
               DEL
@@ -485,19 +561,76 @@ export default function GameUI() {
         {!gameOver && (
           <div className="flex flex-col gap-2">
             <button
-              onClick={restartGame}
+              onClick={handleRestartClick}
+              disabled={restarting}
               className="group relative overflow-hidden rounded-xl w-full"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-orange-600 to-orange-500 opacity-100 group-hover:opacity-0 transition"></div>
               <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-600 opacity-0 group-hover:opacity-100 transition"></div>
-              <div className="relative bg-gradient-to-r from-orange-600 to-orange-500 group-hover:from-orange-500 group-hover:to-red-600 text-white font-bold py-2 sm:py-3 px-4 rounded-xl flex items-center justify-center gap-2 transform group-hover:scale-105 transition active:scale-95 shadow-lg shadow-orange-500/30">
+              <div className="relative bg-gradient-to-r from-orange-600 to-orange-500 group-hover:from-orange-500 group-hover:to-red-600 text-white font-bold py-2 sm:py-3 px-4 rounded-xl flex items-center justify-center gap-2 transform group-hover:scale-105 transition active:scale-95 shadow-lg shadow-orange-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
                 <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span className="text-sm sm:text-base">New Game</span>
+                <span className="text-sm sm:text-base">
+                  {restarting ? "Restarting..." : "New Game"}
+                </span>
               </div>
             </button>
           </div>
         )}
       </div>
+
+      {/* Restart Confirmation Modal */}
+      {showRestartConfirm && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50 p-4">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-6 sm:p-8 text-center border border-slate-700 relative max-w-sm w-full">
+            <button
+              onClick={cancelRestart}
+              className="absolute top-3 right-3 text-slate-400 hover:text-white transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <AlertCircle className="w-12 h-12 sm:w-14 sm:h-14 mx-auto text-orange-400 mb-4" />
+            <h2 className="text-2xl sm:text-3xl font-black text-white mb-4">
+              Restart Game?
+            </h2>
+
+            <div className="bg-slate-700/50 rounded-xl p-4 mb-6 space-y-3 text-sm sm:text-base">
+              <div className="flex items-start gap-3 text-slate-300">
+                <AlertTriangle className="w-5 h-5 text-orange-400 mt-0.5 flex-shrink-0" />
+                <p className="text-left">Restarting the game will deduct <span className="text-red-400 font-bold">50 points</span> from your score.</p>
+              </div>
+              <div className="flex items-start gap-3 text-slate-300">
+                <Target className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+                <p className="text-left">The current word will be revealed, and a new game will start in 3 seconds.</p>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={cancelRestart}
+                className="group relative overflow-hidden flex-1 rounded-lg"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-600 to-slate-500 opacity-100 group-hover:opacity-0 transition"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-500 to-slate-400 opacity-0 group-hover:opacity-100 transition"></div>
+                <div className="relative bg-gradient-to-r from-slate-600 to-slate-500 group-hover:from-slate-500 group-hover:to-slate-400 text-white font-bold py-2 sm:py-3 px-3 sm:px-4 rounded-lg flex items-center justify-center gap-2 transform group-hover:scale-105 transition active:scale-95 shadow-lg">
+                  <span className="text-xs sm:text-sm">Cancel</span>
+                </div>
+              </button>
+              <button
+                onClick={confirmRestart}
+                className="group relative overflow-hidden flex-1 rounded-lg"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-500 opacity-100 group-hover:opacity-0 transition"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-orange-600 opacity-0 group-hover:opacity-100 transition"></div>
+                <div className="relative bg-gradient-to-r from-red-600 to-red-500 group-hover:from-red-500 group-hover:to-orange-600 text-white font-bold py-2 sm:py-3 px-3 sm:px-4 rounded-lg flex items-center justify-center gap-2 transform group-hover:scale-105 transition active:scale-95 shadow-lg">
+                  <span className="text-xs sm:text-sm">Confirm</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Game Over Modal */}
       {gameOver && (
