@@ -253,7 +253,7 @@ export default function GameUIEasy() {
           setStartTime(Date.now());
           setLoading(false);
           setMessage("");
-          console.log(fetched)
+         
           return;
         } else {
           attempts++;
