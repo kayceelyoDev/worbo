@@ -17,6 +17,8 @@ import {
   Target,
   X,
   AlertCircle,
+  Lightbulb,
+  RefreshCw,
 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import Link from "next/link";
@@ -25,13 +27,13 @@ import { getRank } from "@/lib/getRank";
 const WORD_LENGTH = 5;
 const MAX_TRIES = 6;
 
-export default function GameUI() {
+export default function GameUIEasy() {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [guesses, setGuesses] = useState<string[]>(Array(MAX_TRIES).fill(""));
   const [currentRow, setCurrentRow] = useState<number>(0);
   const [message, setMessage] = useState<string>("");
   const [targetWord, setTargetWord] = useState<string>("");
-  const [category, setCategory] = useState<string | null>(null);
+  const [hint, setHint] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [endTime, setEndTime] = useState<number | null>(null);
@@ -42,6 +44,8 @@ export default function GameUI() {
   const [usedKeys, setUsedKeys] = useState<Record<string, string>>({});
   const [showRestartConfirm, setShowRestartConfirm] = useState<boolean>(false);
   const [restarting, setRestarting] = useState<boolean>(false);
+  const [showDefinitionError, setShowDefinitionError] = useState<boolean>(false);
+  const [definitionErrorCount, setDefinitionErrorCount] = useState<number>(0);
   const router = useRouter();
 
   const guessesRef = useRef<string[]>(guesses);
@@ -90,60 +94,166 @@ export default function GameUI() {
     checkAuth();
   }, [router]);
 
-  const categories = [
-    "animals",
-    "countries",
-    "sports",
-    "fruits",
-    "colors",
-    "vehicles",
-    "technology",
-    "movies",
-    "music",
-    "planets",
-    "occupations",
-    "flowers",
-    "emotions",
-    "foods",
-    "bodyparts",
-    "brands",
-    "companies",
-    "birds",
-    "capital",
-  ];
+  // Function to fetch definition via your Next.js API route
+  const fetchDefinition = async (word: string): Promise<string> => {
+    try {
+      const response = await fetch(`/api/dictionary?word=${encodeURIComponent(word)}`);
+      
+      if (!response.ok) {
+        throw new Error('Word not found in dictionary');
+      }
+
+      const data = await response.json();
+      
+      if (data && data.definition) {
+        let definition = data.definition;
+        
+        // Clean the definition to ensure it doesn't reveal the word
+        definition = definition.replace(new RegExp(word, 'gi'), '_____');
+        definition = definition.replace(new RegExp(word.toLowerCase(), 'gi'), '_____');
+        definition = definition.replace(new RegExp(word.toUpperCase(), 'gi'), '_____');
+        
+        // Remove any obvious reveals and clean up the text
+        definition = definition.split('.')[0]; // Take only the first sentence
+        definition = definition.replace(/[^a-zA-Z0-9\s.,!?-]/g, ''); // Remove special characters
+        
+        // Ensure the definition is not too revealing
+        if (definition.length < 10 || definition.toLowerCase().includes(word.toLowerCase())) {
+          throw new Error('Definition too revealing');
+        }
+        
+        return definition;
+      }
+      
+      throw new Error('No definition found');
+    } catch (error) {
+      console.error('Error fetching definition:', error);
+      // Show error modal after multiple failures
+      setDefinitionErrorCount(prev => {
+        const newCount = prev + 1;
+        if (newCount >= 2) { // Show modal after 2 consecutive failures
+          setShowDefinitionError(true);
+        }
+        return newCount;
+      });
+      return "A common five-letter word";
+    }
+  };
+
+  // Helper function for fallback words
+  const getRandomFallbackWord = (): string => {
+    const fallbackWords = [
+      // Common nouns
+      "APPLE", "BRAIN", "CHAIR", "DREAM", "EARTH", "FLAME", "GRAPE", "HEART",
+      "HOUSE", "LIGHT", "MONEY", "NIGHT", "PHONE", "RIVER", "SMILE", "TABLE",
+      "WATER", "BEACH", "CLOUD", "FRUIT", "GHOST", "IMAGE", "LEMON", "PIANO",
+      "QUEEN", "ROBOT", "TIGER", "WHALE", "BREAD", "EMAIL", "GLOBE", "HONEY",
+      "MAGIC", "PEARL", "SHARK", "WHEAT", 
+      
+      // Common adjectives
+      "ANGRY", "BLISS", "BROWN", "CLEAN", "DIZZY", "EMPTY", "FAST", "GREAT",
+      "HAPPY", "IVORY", "JUMPY", "LUCKY", "MERRY", "NASTY", "OLIVE", "PROUD",
+      "QUICK", "ROYAL", "SILLY", "TALL", "ULTRA", "VIVID", "WACKY", "YOUNG",
+      "ZESTY", "ALIVE", "BRAVE", "CALM", "DEEP", "EPIC", "FINE", "GOLD",
+      
+      // Common verbs
+      "BRING", "CATCH", "DANCE", "ENTER", "FIGHT", "GUARD", "HELP", "JUMP",
+      "KNOCK", "LAUGH", "MARCH", "NOTES", "OFFER", "PULL", "QUEST", "REACH",
+      "SHARE", "THINK", "UNDER", "VALUE", "WATCH", "YIELD", "ADMIT", "BUILD",
+      "CLIMB", "DRIVE", "EAT", "FOCUS", "GROW", "HOLD", "INPUT"
+    ];
+    
+    return fallbackWords[Math.floor(Math.random() * fallbackWords.length)];
+  };
+
+  // Function to fetch root/common words from various free APIs
+  const fetchRootWord = async (): Promise<string | null> => {
+    const apis = [
+      // Primary: Random Word API (most reliable)
+      async () => {
+        const response = await fetch(
+          `https://random-word-api.vercel.app/api?words=1&length=${WORD_LENGTH}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          return data[0]?.toUpperCase();
+        }
+        throw new Error('API failed');
+      },
+      
+      // Secondary: Random Word Form API
+      async () => {
+        const response = await fetch(
+          `https://random-word-form.herokuapp.com/random/noun?count=1`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const word = data[0]?.toUpperCase();
+          if (word?.length === WORD_LENGTH) return word;
+        }
+        throw new Error('API failed');
+      },
+      
+      // Tertiary: Datamuse for common words
+      async () => {
+        const response = await fetch(
+          `https://api.datamuse.com/words?sp=${'?'.repeat(WORD_LENGTH)}&max=30`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const validWords = data
+            .filter((item: any) => item.word?.length === WORD_LENGTH && /^[A-Za-z]+$/.test(item.word))
+            .map((item: any) => item.word.toUpperCase());
+          if (validWords.length > 0) {
+            return validWords[Math.floor(Math.random() * validWords.length)];
+          }
+        }
+        throw new Error('API failed');
+      }
+    ];
+
+    // Try each API in sequence
+    for (const api of apis) {
+      try {
+        const result = await api();
+        if (result && result.length === WORD_LENGTH && /^[A-Z]+$/.test(result)) {
+          return result;
+        }
+      } catch (error) {
+        console.log("API attempt failed, trying next...");
+        continue;
+      }
+    }
+
+    // Final fallback
+    return getRandomFallbackWord();
+  };
 
   const fetchWord = async () => {
     setLoading(true);
     setMessage("");
+    setDefinitionErrorCount(0); // Reset error count on new fetch
     let attempts = 0;
-    const maxAttempts = 7;
+    const maxAttempts = 5;
 
     while (attempts < maxAttempts) {
       try {
-        const randomCategory =
-          categories[Math.floor(Math.random() * categories.length)];
+        // Step 1: Fetch root/common word
+        setMessage("Loading word...");
+        const fetched = await fetchRootWord();
 
-        const res = await fetch(
-          `https://random-words-api.kushcreates.com/api?category=${randomCategory}&length=${WORD_LENGTH}&words=1`
-        );
-
-        if (!res.ok) throw new Error("Failed API response");
-
-        const data = await res.json();
-        const fetched = data?.[0]?.word?.toUpperCase?.();
-
-        if (
-          fetched &&
-          fetched.length === WORD_LENGTH &&
-          /^[A-Z]+$/.test(fetched)
-        ) {
+        if (fetched && fetched.length === WORD_LENGTH && /^[A-Z]+$/.test(fetched)) {
           setTargetWord(fetched);
-          setCategory(
-            randomCategory.charAt(0).toUpperCase() + randomCategory.slice(1)
-          );
+
+          // Step 2: Fetch definition for the word using your dictionary API
+          setMessage("Getting hint...");
+          const definition = await fetchDefinition(fetched);
+          setHint(definition);
+
           setStartTime(Date.now());
           setLoading(false);
-
+          setMessage("");
+          console.log(fetched)
           return;
         } else {
           attempts++;
@@ -193,7 +303,6 @@ export default function GameUI() {
           else if (currentScore < 60000) deduction = 500;
           else if (currentScore < 100000) deduction = 550;
           else deduction = 550;
-
 
           updatedScore = Math.max(0, existing.score - deduction);
           setAnimatedPoints(-deduction);
@@ -246,7 +355,7 @@ export default function GameUI() {
       if (existing) {
         const deduction = 50;
         const updatedScore = Math.max(0, existing.score - deduction);
-
+        
         const { name: rankName } = getRank(updatedScore);
 
         const { error: updateError } = await supabase
@@ -367,13 +476,13 @@ export default function GameUI() {
   const confirmRestart = async () => {
     setShowRestartConfirm(false);
     setRestarting(true);
-
+    
     // Deduct 50 points
     await deductPointsForRestart();
-
+    
     // Show the current word
     setMessage(`Game restarted! The word was: ${targetWord}`);
-
+    
     // Wait for 3 seconds before starting new game
     setTimeout(() => {
       resetGame();
@@ -394,12 +503,22 @@ export default function GameUI() {
     setGameOver(false);
     setUsedKeys({});
     setAnimatedPoints(null);
+    setShowDefinitionError(false); // Hide definition error modal on reset
     await fetchWord();
   };
 
   const restartGame = async () => {
     // For game over state, restart without confirmation
     resetGame();
+  };
+
+  const handleRefreshPage = () => {
+    window.location.reload();
+  };
+
+  const handleCloseDefinitionError = () => {
+    setShowDefinitionError(false);
+    setDefinitionErrorCount(0); // Reset count when manually closed
   };
 
   const keyboardLayout: string[][] = [
@@ -430,7 +549,7 @@ export default function GameUI() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-slate-300">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="animate-spin w-8 h-8" />
-          <p className="text-lg font-semibold">Loading word...</p>
+          <p className="text-lg font-semibold">Loading word and hint...</p>
         </div>
       </div>
     );
@@ -448,10 +567,8 @@ export default function GameUI() {
         }}></div>
       </div>
 
-
       <div className="fixed -top-40 -left-40 w-80 h-80 rounded-full bg-green-500/10 blur-3xl pointer-events-none"></div>
       <div className="fixed -bottom-40 -right-40 w-80 h-80 rounded-full bg-blue-500/10 blur-3xl pointer-events-none"></div>
-
 
       <div className="relative z-10 w-full flex items-center justify-between mb-6 sm:mb-8 px-2">
         <Link href="/menu" className="flex items-center gap-2 text-slate-300 hover:text-green-400 transition transform hover:scale-110">
@@ -462,7 +579,7 @@ export default function GameUI() {
         <div className="flex items-center gap-3">
           <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400 animate-pulse" />
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-wider">
-            WOR<span className="text-green-500">BO</span>
+            WOR<span className="text-green-500">BO</span> <span className="text-sm text-yellow-400">EASY</span>
           </h1>
           <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400 animate-pulse" />
         </div>
@@ -470,21 +587,30 @@ export default function GameUI() {
         <div className="w-5 h-5 sm:w-6 sm:h-6"></div>
       </div>
 
-
-      {category && !gameOver && (
-        <div className="relative z-10 flex flex-col items-center gap-2 mb-4 sm:mb-6">
-          <div className="flex items-center gap-2 text-slate-300">
-            <Target className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
-            <p className="text-sm sm:text-base">Category: <span className="text-yellow-400 font-bold">{category}</span></p>
-          </div>
-          <div className="flex items-center gap-2 text-slate-300">
+      {/* Hint Section - Enhanced for Easy Mode */}
+      {!gameOver && (
+        <div className="relative z-10 flex flex-col items-center gap-3 mb-4 sm:mb-6 w-full max-w-md">
+          <div className="flex items-center gap-2 text-slate-300 bg-slate-800/50 px-3 py-2 rounded-lg border border-slate-700">
             <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400" />
             <p className="text-sm sm:text-base">Attempts: <span className="text-orange-400 font-bold">{currentRow}/{MAX_TRIES}</span></p>
           </div>
+          
+          {/* Hint Display */}
+          {hint && (
+            <div className="w-full bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-500/30 rounded-xl p-3 sm:p-4">
+              <div className="flex items-start gap-2 text-slate-200">
+                <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+                <div className="text-left">
+                  <p className="text-xs sm:text-sm font-semibold text-yellow-400 mb-1">Hint:</p>
+                  <p className="text-sm sm:text-base leading-relaxed">{hint}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-
+      {/* Game Board */}
       <div className="relative z-10 w-full max-w-md mx-auto">
         <div className="space-y-2 mb-6">
           {guesses.map((word, rowIdx) => (
@@ -495,8 +621,9 @@ export default function GameUI() {
                 return (
                   <div
                     key={colIdx}
-                    className={`${colorClass} w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center font-bold text-white rounded-lg border-2 text-lg sm:text-xl transition transform ${letter && rowIdx < currentRow ? 'scale-100' : 'scale-95'
-                      }`}
+                    className={`${colorClass} w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center font-bold text-white rounded-lg border-2 text-lg sm:text-xl transition transform ${
+                      letter && rowIdx < currentRow ? 'scale-100' : 'scale-95'
+                    }`}
                   >
                     {letter}
                   </div>
@@ -506,20 +633,21 @@ export default function GameUI() {
           ))}
         </div>
 
-
+        {/* Message Display */}
         {message && (
-          <div className={`text-center mb-4 flex items-center justify-center gap-2 px-4 py-2 rounded-lg ${message.includes("Not enough")
-              ? "bg-red-500/20 border border-red-400/50 text-red-300"
+          <div className={`text-center mb-4 flex items-center justify-center gap-2 px-4 py-2 rounded-lg ${
+            message.includes("Not enough") 
+              ? "bg-red-500/20 border border-red-400/50 text-red-300" 
               : message.includes("Game restarted")
-                ? "bg-orange-500/20 border border-orange-400/50 text-orange-300"
-                : "bg-slate-700/50 border border-slate-600 text-slate-300"
-            }`}>
+              ? "bg-orange-500/20 border border-orange-400/50 text-orange-300"
+              : "bg-slate-700/50 border border-slate-600 text-slate-300"
+          }`}>
             <AlertTriangle className="w-4 h-4" />
             <p className="text-sm sm:text-base">{message}</p>
           </div>
         )}
 
-
+        {/* Keyboard */}
         <div className="space-y-1.5 sm:space-y-2 mb-6">
           {keyboardLayout.map((row, rIdx) => (
             <div key={rIdx} className="flex justify-center gap-1 sm:gap-1 flex-nowrap">
@@ -539,7 +667,7 @@ export default function GameUI() {
             </div>
           ))}
 
-
+          {/* Enter and Delete Buttons */}
           <div className="flex justify-center gap-1 sm:gap-1.5 mt-2 sm:mt-3">
             <button
               onClick={() => handleKeyPress("ENTER")}
@@ -558,7 +686,7 @@ export default function GameUI() {
           </div>
         </div>
 
-
+        {/* Restart Button */}
         {!gameOver && (
           <div className="flex flex-col gap-2">
             <button
@@ -579,7 +707,65 @@ export default function GameUI() {
         )}
       </div>
 
+      {/* Definition Error Modal */}
+      {showDefinitionError && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50 p-4">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-6 sm:p-8 text-center border border-slate-700 relative max-w-sm w-full">
+            <button
+              onClick={handleCloseDefinitionError}
+              className="absolute top-3 right-3 text-slate-400 hover:text-white transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
 
+            <AlertTriangle className="w-12 h-12 sm:w-14 sm:h-14 mx-auto text-orange-400 mb-4" />
+            <h2 className="text-2xl sm:text-3xl font-black text-white mb-4">
+              Definition Issue
+            </h2>
+
+            <div className="bg-slate-700/50 rounded-xl p-4 mb-6 space-y-3 text-sm sm:text-base">
+              <div className="flex items-start gap-3 text-slate-300">
+                <AlertCircle className="w-5 h-5 text-orange-400 mt-0.5 flex-shrink-0" />
+                <p className="text-left">We're having trouble getting proper definitions for words right now.</p>
+              </div>
+              <div className="flex items-start gap-3 text-slate-300">
+                <RefreshCw className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+                <p className="text-left">Please refresh the page to get a new word with a proper hint.</p>
+              </div>
+              <div className="flex items-start gap-3 text-slate-300">
+                <Lightbulb className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+                <p className="text-left">You can still play with the current word, but the hint might be generic.</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleCloseDefinitionError}
+                className="group relative overflow-hidden flex-1 rounded-lg"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-600 to-slate-500 opacity-100 group-hover:opacity-0 transition"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-500 to-slate-400 opacity-0 group-hover:opacity-100 transition"></div>
+                <div className="relative bg-gradient-to-r from-slate-600 to-slate-500 group-hover:from-slate-500 group-hover:to-slate-400 text-white font-bold py-2 sm:py-3 px-3 sm:px-4 rounded-lg flex items-center justify-center gap-2 transform group-hover:scale-105 transition active:scale-95 shadow-lg">
+                  <span className="text-xs sm:text-sm">Continue Anyway</span>
+                </div>
+              </button>
+              <button
+                onClick={handleRefreshPage}
+                className="group relative overflow-hidden flex-1 rounded-lg"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-500 opacity-100 group-hover:opacity-0 transition"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-green-600 opacity-0 group-hover:opacity-100 transition"></div>
+                <div className="relative bg-gradient-to-r from-blue-600 to-blue-500 group-hover:from-blue-500 group-hover:to-green-600 text-white font-bold py-2 sm:py-3 px-3 sm:px-4 rounded-lg flex items-center justify-center gap-2 transform group-hover:scale-105 transition active:scale-95 shadow-lg">
+                  <RefreshCw className="w-4 h-4" />
+                  <span className="text-xs sm:text-sm">Refresh Page</span>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Restart Confirmation Modal */}
       {showRestartConfirm && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50 p-4">
           <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-6 sm:p-8 text-center border border-slate-700 relative max-w-sm w-full">
@@ -605,7 +791,6 @@ export default function GameUI() {
                 <p className="text-left">The current word will be revealed, and a new game will start in 3 seconds.</p>
               </div>
             </div>
-
 
             <div className="flex flex-col sm:flex-row gap-3">
               <button
@@ -633,14 +818,15 @@ export default function GameUI() {
         </div>
       )}
 
-
+      {/* Game Over Modal */}
       {gameOver && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-50 p-4">
           <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl p-6 sm:p-8 text-center border border-slate-700 relative max-w-sm w-full">
             {/* Animated Points */}
             {animatedPoints !== null && (
-              <div className={`absolute -top-8 left-1/2 transform -translate-x-1/2 font-bold text-2xl pointer-events-none ${isPositive ? "text-green-400 animate-bounce" : "text-red-500 animate-pulse"
-                }`}>
+              <div className={`absolute -top-8 left-1/2 transform -translate-x-1/2 font-bold text-2xl pointer-events-none ${
+                isPositive ? "text-green-400 animate-bounce" : "text-red-500 animate-pulse"
+              }`}>
                 {isPositive ? (
                   <div className="flex items-center gap-1">
                     <ArrowUpCircle className="w-6 h-6" /> +{animatedPoints}
@@ -657,7 +843,6 @@ export default function GameUI() {
             <h2 className="text-2xl sm:text-3xl font-black text-white mb-4">
               {score && score > 0 ? "You Won!" : "Game Over"}
             </h2>
-
 
             <div className="bg-slate-700/50 rounded-xl p-4 mb-6 space-y-2 text-sm sm:text-base">
               <div className="flex justify-between text-slate-300">
@@ -686,12 +871,7 @@ export default function GameUI() {
                   <span className="text-green-400 font-bold">{targetWord}</span>
                 </div>
               </div>
-              <div className="flex justify-between text-slate-300">
-                <span>Category:</span>
-                <span className="text-yellow-400 font-bold">{category}</span>
-              </div>
             </div>
-
 
             <div className="flex flex-col sm:flex-row gap-3">
               <button
