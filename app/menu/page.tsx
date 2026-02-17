@@ -20,11 +20,14 @@ export default function MainMenu() {
         router.push("/auth/signup");
       } else {
         const { data: profile, error } = await supabase
-          .from("userProfile")
+          .from("user_profile")
           .select("username, usertag")
           .eq("user_id", user.id)
           .single();
-        if (profile && !error) {
+        
+        if (error || !profile) {
+          router.push("/auth/makeprofile");
+        } else {
           setUsername(profile.username);
           setUsertag(profile.usertag);
         }

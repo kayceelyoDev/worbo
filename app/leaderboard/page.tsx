@@ -63,7 +63,7 @@ export default function Leaderboard() {
       try {
         const { data, error } = await supabase
           .from("scores_table")
-          .select("id, score, user_id, userProfile(username, usertag)")
+          .select("id, score, user_id, user_profile(username, usertag)")
           .order("score", { ascending: false });
 
         if (error) {
@@ -73,14 +73,14 @@ export default function Leaderboard() {
         }
 
         const formatted = (data || [])
-          .filter((row: any) => row.userProfile?.username && row.userProfile?.usertag)
+          .filter((row: any) => row.user_profile?.username && row.user_profile?.usertag)
           .map((row: any) => {
             const rankInfo = getRank(row.score);
             return {
               id: row.id,
               score: row.score,
-              username: row.userProfile.username,
-              usertag: row.userProfile.usertag,
+              username: row.user_profile.username,
+              usertag: row.user_profile.usertag,
               userId: row.user_id,
               rankName: rankInfo.name,
             };

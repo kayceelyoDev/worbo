@@ -15,16 +15,29 @@ const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-     setError('');
+    setError('');
     setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error){
-         setError(error.message);
-            setLoading(false);
-            return
-    } 
-    
-    else router.push("/auth/makeprofile");
+
+    const { data, error } = await supabase.auth.signUp({ 
+      email, 
+      password,
+      options: {
+        emailRedirectTo: `${location.origin}/auth/callback`,
+      }
+    });
+
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+      return;
+    }
+
+    if (data?.session) {
+      router.push("/auth/makeprofile");
+    } else {
+      setSuccess(true);
+      setLoading(false);
+    }
   };
 
   return (
@@ -129,8 +142,11 @@ const [loading, setLoading] = useState(false);
             <div className="text-center py-8 space-y-4">
               <div className="text-6xl animate-bounce">✓</div>
               <h3 className="text-2xl font-bold text-green-400">Welcome to Worbo!</h3>
-              <p className="text-slate-400">Your account has been created successfully.</p>
-              <p className="text-sm text-slate-500">Let's play!</p>
+              <p className="text-slate-400">Your account has been created.</p>
+              <p className="text-sm text-yellow-400 font-semibold">Please check your email to verify your account!</p>
+              <Link href="/auth/signin" className="block mt-4 text-green-400 hover:underline">
+                Then sign in here
+              </Link>
             </div>
           )}
         </div>

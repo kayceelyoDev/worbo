@@ -1,0 +1,32 @@
+name: Keep Supabase Active
+
+on:
+  schedule:
+    # Run at 00:00 every day
+    - cron: "0 0 * * *"
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Keep-Alive Endpoint
+        env:
+          # You must add APP_URL to your GitHub Repository Secrets
+          # Example: https://your-app-name.vercel.app
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "::error::APP_URL secret is not set!"
+            exit 1
+          fi
+
+          echo "Pinging $APP_URL/api/keep-alive..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" "$APP_URL/api/keep-alive")
+
+          if [ "$response" -eq 200 ]; then
+            echo "✅ Keep-alive successful (HTTP 200)"
+          else
+            echo "❌ Keep-alive failed (HTTP $response)"
+            exit 1
+          fi

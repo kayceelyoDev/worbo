@@ -60,11 +60,15 @@ export default function CreateProfile() {
 
     // Insert to Supabase table
     const { error: insertError } = await supabase
-      .from("userProfile")
+      .from("user_profile")
       .insert([{ username, usertag, user_id: userId }]);
 
     if (insertError) {
-      setError(insertError.message);
+      if (insertError.code === "23505") {
+        setError("This username and tag combination is already taken.");
+      } else {
+        setError(insertError.message);
+      }
       setLoading(false);
       return;
     }

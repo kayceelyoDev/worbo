@@ -26,7 +26,7 @@ export default function ProfilePage() {
       }
 
       const { data: profile, error: profileError } = await supabase
-        .from("userProfile")
+        .from("user_profile")
         .select("id, username, usertag")
         .eq("user_id", user.id)
         .single();
